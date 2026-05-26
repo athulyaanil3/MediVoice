@@ -1,4 +1,3 @@
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +16,8 @@ import 'services/voice_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await LocalStore.init();
+  // Must complete before any provider reads LocalStore (Home, Meds, Food tabs).
+  await LocalStore.boot();
 
   try {
     await Firebase.initializeApp(
@@ -46,30 +46,22 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => MedicineCatalog(),
         ),
-
         ChangeNotifierProvider(
           create: (_) => VoiceService(),
         ),
-
         ChangeNotifierProvider(
           create: (_) => CalorieJournal(),
         ),
       ],
-
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-
         title: 'MediVoice AI',
-
         theme: ThemeData(
           useMaterial3: true,
           scaffoldBackgroundColor: const Color(0xFFAED9D5),
         ),
-
         home: const AppShell(),
       ),
     );
   }
 }
-
-
