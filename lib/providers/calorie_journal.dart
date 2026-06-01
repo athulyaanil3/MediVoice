@@ -15,16 +15,17 @@ class CalorieJournal extends ChangeNotifier {
   List<FoodEntry> _entries = [];
 
   int _calorieGoal = LocalStore.defaultCalorieGoal;
+  int _waterGoalMl = LocalStore.defaultWaterGoalMl;
   int _waterMlToday = 0;
 
   List<FoodEntry> get entries => List.unmodifiable(_entries);
   int get calorieGoal => _calorieGoal;
-  int get waterGoalMl => LocalStore.defaultWaterGoalMl;
+  int get waterGoalMl => _waterGoalMl;
   int get waterMlToday => _waterMlToday;
   double get waterLitersToday => _waterMlToday / 1000;
-  double get waterGoalLiters => waterGoalMl / 1000;
+  double get waterGoalLiters => _waterGoalMl / 1000;
   int get waterGlassesToday => (_waterMlToday / mlPerGlass).floor();
-  int get waterGlassGoal => (waterGoalMl / mlPerGlass).ceil();
+  int get waterGlassGoal => (_waterGoalMl / mlPerGlass).ceil();
 
   int get todayTotal => LocalStore.todayCalorieTotal();
 

@@ -127,7 +127,20 @@ class AuthService {
 
   User? getCurrentUser() => _auth.currentUser;
 
+  bool get isSignedIn => _auth.currentUser != null;
+
   Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  /// Waits for Firebase to restore a saved session on this device.
+  Future<User?> waitForSignedInUser() async {
+    try {
+      return await _auth.authStateChanges().first.timeout(
+            const Duration(seconds: 5),
+          );
+    } catch (_) {
+      return _auth.currentUser;
+    }
+  }
 
   static bool _isConfigurationMissing(FirebaseAuthException e) {
     final msg = '${e.message ?? ''} ${e.code}'.toUpperCase();

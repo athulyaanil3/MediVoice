@@ -451,7 +451,7 @@ class MedicineCatalog extends ChangeNotifier {
         _lastScheduleMessage = 'Scheduled $totalScheduled reminder(s).';
         if (!status.exactAlarmsEnabled) {
           _lastScheduleMessage =
-              '$totalScheduled reminder(s) set. Allow exact alarms for on-time alerts.';
+          '$totalScheduled reminder(s) set. Allow exact alarms for on-time alerts.';
         }
       } else {
         _lastScheduleMessage = null;

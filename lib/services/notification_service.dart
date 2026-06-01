@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -15,9 +16,14 @@ import 'reminder_voice_service.dart';
 final FlutterLocalNotificationsPlugin _notifications =
     FlutterLocalNotificationsPlugin();
 
-AndroidFlutterLocalNotificationsPlugin? get _android =>
-    _notifications.resolvePlatformSpecificImplementation<
+AndroidFlutterLocalNotificationsPlugin? get _android {
+  try {
+    return _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
+  } catch (_) {
+    return null;
+  }
+}
 
 @pragma('vm:entry-point')
 void onBackgroundNotificationResponse(NotificationResponse response) {
@@ -62,7 +68,12 @@ class NotificationScheduleResult {
 Future<void> initNotifications() async {
   tz_data.initializeTimeZones();
   await _configureLocalTimeZone();
-  await initReminderVoiceAlarms();
+
+  try {
+    await initReminderVoiceAlarms();
+  } catch (e) {
+    if (kDebugMode) debugPrint('Voice alarm init skipped: $e');
+  }
 
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
 
@@ -132,8 +143,13 @@ Future<ReminderPermissionStatus> ensureReminderPermissions({
   if (requestIfNeeded) {
     if (defaultTargetPlatform == TargetPlatform.android) {
       await _android?.requestNotificationsPermission();
-      if (await Permission.scheduleExactAlarm.isDenied) {
+      final exact = await Permission.scheduleExactAlarm.status;
+      if (!exact.isGranted) {
         await Permission.scheduleExactAlarm.request();
+      }
+      final notif = await Permission.notification.status;
+      if (!notif.isGranted) {
+        await Permission.notification.request();
       }
     } else {
       await Permission.notification.request();
@@ -145,14 +161,21 @@ Future<ReminderPermissionStatus> ensureReminderPermissions({
 Future<void> openReminderPermissionSettings() async {
   if (defaultTargetPlatform == TargetPlatform.android) {
     final status = await getReminderPermissionStatus();
+    if (!status.notificationsEnabled) {
+      await AppSettings.openAppSettings(type: AppSettingsType.notification);
+      return;
+    }
     if (!status.exactAlarmsEnabled) {
-      if (await Permission.scheduleExactAlarm.isDenied) {
-        await Permission.scheduleExactAlarm.request();
-      }
+      await AppSettings.openAppSettings(type: AppSettingsType.alarm);
       return;
     }
   }
   await openAppSettings();
+}
+
+/// Opens battery settings — needed on Oppo/Realme/Vivo so alarms fire on time.
+Future<void> openBatteryOptimizationSettings() async {
+  await AppSettings.openAppSettings(type: AppSettingsType.batteryOptimization);
 }
 
 int reminderNotificationId(String medicineId, int slotIndex) {
@@ -261,18 +284,24 @@ Future<NotificationScheduleResult> scheduleMedicineNotifications(
         matchDateTimeComponents: DateTimeComponents.time,
       );
 
-      await scheduleVoiceAlarmForReminder(
-        alarmId: id,
-        when: when,
-        speechText: speechText,
-        hour: parsed.hour,
-        minute: parsed.minute,
-      );
-
       scheduled++;
 
+      try {
+        await scheduleVoiceAlarmForReminder(
+          alarmId: id,
+          when: when,
+          speechText: speechText,
+          hour: parsed.hour,
+          minute: parsed.minute,
+        );
+      } catch (e) {
+        if (kDebugMode) debugPrint('Voice alarm skipped for ${medicine.name}: $e');
+      }
+
       if (kDebugMode) {
-        debugPrint('Scheduled ${medicine.name} at ${medicine.reminderTimes[i]} + voice');
+        debugPrint(
+          'Scheduled ${medicine.name} at ${medicine.reminderTimes[i]} → $when',
+        );
       }
     } catch (e) {
       lastError = e.toString();

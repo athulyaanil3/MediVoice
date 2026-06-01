@@ -2,161 +2,131 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Medicine {
 
-  Medicine({
-
-    required this.id,
-
-    required this.name,
-
-    required this.dosage,
-
-    required this.reminderTimes,
-
-    required this.repeatDays,
-
-    // NEW
-    required this.stock,
-
-    // NEW
-    required this.dailyDose,
-
-    this.notes,
-
-    DateTime? createdAt,
-
-  }) : createdAt =
-      createdAt ??
-          DateTime.now();
-
   final String id;
-
   final String name;
-
   final String dosage;
 
   final List<String> reminderTimes;
-
-  // REPEAT DAYS
   final List<String> repeatDays;
 
-  // NEW
   final int stock;
-
-  // NEW
   final int dailyDose;
 
   final String? notes;
 
   final DateTime createdAt;
 
-  Map<String, dynamic> toMap() => {
+  Medicine({
+    required this.id,
+    required this.name,
+    required this.dosage,
+    required this.reminderTimes,
+    required this.repeatDays,
+    required this.stock,
+    required this.dailyDose,
+    this.notes,
+    DateTime? createdAt,
+  }) : createdAt =
+      createdAt ?? DateTime.now();
 
-    'id': id,
+  // =========================
+  // TO MAP
+  // =========================
 
-    'name': name,
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'dosage': dosage,
+      'reminderTimes': reminderTimes,
+      'repeatDays': repeatDays,
+      'stock': stock,
+      'dailyDose': dailyDose,
+      'notes': notes,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
 
-    'dosage': dosage,
+  Map<String, dynamic> toFirestoreMap() {
+    return {
+      'id': id,
+      'name': name,
+      'dosage': dosage,
+      'reminderTimes': reminderTimes,
+      'repeatDays': repeatDays,
+      'stock': stock,
+      'dailyDose': dailyDose,
+      'notes': notes,
+      'createdAt': Timestamp.fromDate(createdAt),
+    };
+  }
 
-    'reminderTimes':
-    reminderTimes,
-
-    'repeatDays':
-    repeatDays,
-
-    // NEW
-    'stock': stock,
-
-    // NEW
-    'dailyDose':
-    dailyDose,
-
-    'notes': notes,
-
-    'createdAt':
-    createdAt
-        .toIso8601String(),
-  };
+  // =========================
+  // FROM MAP
+  // =========================
 
   factory Medicine.fromMap(
-      Map<dynamic, dynamic> raw) {
+      Map<String, dynamic> raw,
+      ) {
 
     // REMINDER TIMES
 
-    final rtDyn =
-    raw['reminderTimes'];
+    List<String> reminderTimes = [];
 
-    final reminderTimes =
-    <String>[];
+    if (raw['reminderTimes'] is List) {
 
-    if (rtDyn is List) {
-
-      reminderTimes.addAll(
-
-        rtDyn.map(
-              (e) => e.toString(),
-        ),
+      reminderTimes =
+      List<String>.from(
+        raw['reminderTimes'],
       );
 
-    } else if (rtDyn != null) {
+    } else if (raw['reminderTimes'] != null) {
 
-      reminderTimes.add(
-        rtDyn.toString(),
-      );
+      reminderTimes = [
+        raw['reminderTimes']
+            .toString()
+      ];
     }
 
     // REPEAT DAYS
 
-    final rdDyn =
-    raw['repeatDays'];
+    List<String> repeatDays = [];
 
-    final repeatDays =
-    <String>[];
+    if (raw['repeatDays'] is List) {
 
-    if (rdDyn is List) {
-
-      repeatDays.addAll(
-
-        rdDyn.map(
-              (e) => e.toString(),
-        ),
+      repeatDays =
+      List<String>.from(
+        raw['repeatDays'],
       );
 
-    } else if (rdDyn != null) {
+    } else if (raw['repeatDays'] != null) {
 
-      repeatDays.add(
-        rdDyn.toString(),
-      );
+      repeatDays = [
+        raw['repeatDays']
+            .toString()
+      ];
     }
 
-    // CREATED TIME
+    // CREATED AT
 
-    final createdParsed =
-    raw['createdAt'];
-
-    DateTime created =
+    DateTime createdAt =
     DateTime.now();
 
-    if (createdParsed
-    is DateTime) {
+    final createdRaw =
+    raw['createdAt'];
 
-      created =
-          createdParsed;
-
-    } else if (createdParsed
+    if (createdRaw
     is Timestamp) {
 
-      created =
-          createdParsed.toDate();
+      createdAt =
+          createdRaw.toDate();
 
-    } else if (createdParsed
-        !=
-        null) {
+    } else if (createdRaw
+    is String) {
 
-      created =
+      createdAt =
           DateTime.tryParse(
-
-            createdParsed
-                .toString(),
+            createdRaw,
           ) ??
               DateTime.now();
     }
@@ -165,15 +135,18 @@ class Medicine {
 
       id:
       raw['id']
-          .toString(),
+          ?.toString() ??
+          '',
 
       name:
       raw['name']
-          .toString(),
+          ?.toString() ??
+          '',
 
       dosage:
       raw['dosage']
-          .toString(),
+          ?.toString() ??
+          '',
 
       reminderTimes:
       reminderTimes,
@@ -181,22 +154,23 @@ class Medicine {
       repeatDays:
       repeatDays,
 
-      // NEW
       stock:
-      int.tryParse(
-        raw['stock']
-            ?.toString() ??
-            '0',
-      ) ??
+      raw['stock'] is int
+          ? raw['stock']
+          : int.tryParse(
+          raw['stock']
+              ?.toString() ??
+              '0') ??
           0,
 
-      // NEW
       dailyDose:
-      int.tryParse(
-        raw['dailyDose']
-            ?.toString() ??
-            '0',
-      ) ??
+      raw['dailyDose']
+      is int
+          ? raw['dailyDose']
+          : int.tryParse(
+          raw['dailyDose']
+              ?.toString() ??
+              '0') ??
           0,
 
       notes:
@@ -204,7 +178,7 @@ class Medicine {
           ?.toString(),
 
       createdAt:
-      created,
+      createdAt,
     );
   }
 }

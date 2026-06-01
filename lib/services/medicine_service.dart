@@ -20,7 +20,7 @@ class MedicineService {
         .doc(uid)
         .collection('medicines')
         .doc(medicine.id)
-        .set(medicine.toMap());
+        .set(medicine.toFirestoreMap());
   }
 
   // FETCH MEDICINES

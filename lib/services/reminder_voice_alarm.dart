@@ -13,7 +13,7 @@ import 'reminder_voice_service.dart';
 Future<void> fireReminderVoiceAlarm(int alarmId) async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await LocalStore.init();
+    await LocalStore.boot();
     if (!LocalStore.readVoiceRemindersEnabled()) return;
 
     final text = LocalStore.readReminderVoiceText(alarmId);
@@ -129,7 +129,7 @@ Future<void> speakFromNotificationPayload(String? payload) async {
 
   try {
     if (!HiveBoxesReady.check()) {
-      await LocalStore.init();
+      await LocalStore.boot();
     }
     final map = jsonDecode(payload) as Map<String, dynamic>;
     final name = map['name']?.toString() ?? 'medicine';

@@ -120,31 +120,50 @@ class _MedicineEditorSheetState extends State<_MedicineEditorSheet> {
   }
 
   Future<void> _save() async {
-    if (_saving) return;
-    if (!_formKey.currentState!.validate()) return;
 
-    final timesToSave = normalizeReminderTimes(_times);
-    if (timesToSave.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one valid reminder time.')),
-      );
-      return;
-    }
-
-    setState(() => _saving = true);
-
-    final repeatDays = _selectedDays.isEmpty
-        ? List<String>.from(_weekdays)
-        : List<String>.from(_selectedDays);
-
-    final stock = _parseStock();
-    final perDose = _parsePerDose();
-
-    String? warning;
     try {
+
+      if (_saving) return;
+
+      if (!_formKey.currentState!.validate()) {
+        return;
+      }
+
+      final timesToSave =
+      normalizeReminderTimes(_times);
+
+      if (timesToSave.isEmpty) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Add at least one reminder time.',
+            ),
+          ),
+        );
+
+        return;
+      }
+
+      setState(() => _saving = true);
+
+      final repeatDays =
+      _selectedDays.isEmpty
+          ? List<String>.from(_weekdays)
+          : List<String>.from(_selectedDays);
+
+      final stock = _parseStock();
+      final perDose = _parsePerDose();
+
+      String? warning;
+
       if (widget.existing != null) {
-        warning = await widget.catalog.replaceMedicine(
+
+        warning =
+        await widget.catalog.replaceMedicine(
+
           widget.existing!,
+
           name: _nameCtr.text.trim(),
           dosage: _dosageCtr.text.trim(),
           reminderTimes: timesToSave,
@@ -153,8 +172,12 @@ class _MedicineEditorSheetState extends State<_MedicineEditorSheet> {
           dailyDose: perDose,
           notes: _notesCtr.text.trim(),
         );
+
       } else {
-        warning = await widget.catalog.addMedicine(
+
+        warning =
+        await widget.catalog.addMedicine(
+
           name: _nameCtr.text.trim(),
           dosage: _dosageCtr.text.trim(),
           reminderTimes: timesToSave,
@@ -164,14 +187,35 @@ class _MedicineEditorSheetState extends State<_MedicineEditorSheet> {
           notes: _notesCtr.text.trim(),
         );
       }
-    } finally {
-      if (mounted) setState(() => _saving = false);
+
+      if (!mounted) return;
+
+      setState(() => _saving = false);
+
+      Navigator.pop(
+        context,
+        warning ??
+            'Medicine saved successfully',
+      );
+
+    } catch (e) {
+
+      debugPrint("SAVE ERROR: $e");
+
+      if (mounted) {
+
+        setState(() => _saving = false);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+
+          SnackBar(
+            content: Text(
+              'Error: $e',
+            ),
+          ),
+        );
+      }
     }
-
-    if (!mounted) return;
-
-    final message = warning ?? 'Medicine saved — reminders scheduled.';
-    Navigator.pop(context, message);
   }
 
   @override

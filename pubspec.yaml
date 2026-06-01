@@ -1,72 +1,80 @@
 name: medic
 description: A medicine reminder app
 publish_to: 'none'
+
 version: 1.0.0+1
+
 environment:
  sdk: ">=3.3.0 <4.0.0"
+
 dependencies:
 
-  flutter:
-    sdk: flutter
+ flutter:
+  sdk: flutter
 
-  cupertino_icons: ^1.0.8
-  http: ^1.2.0
+ cupertino_icons: ^1.0.8
+ http: ^1.2.0
 
-  # FIREBASE
-  firebase_core: ^3.15.2
-  firebase_auth: ^5.6.2
-  cloud_firestore: ^5.6.11
-#  firebase_messaging: ^15.2.7
+ # FIREBASE
+ firebase_core: ^3.15.2
+ firebase_auth: ^5.6.2
+ cloud_firestore: ^5.6.11
 
-  # GOOGLE LOGIN
-  google_sign_in: ^7.2.0
+ # GOOGLE LOGIN
+ google_sign_in: ^7.2.0
 
-  # NOTIFICATIONS
-  flutter_local_notifications: ^19.4.0
-  timezone: ^0.10.1
-  flutter_timezone: ^5.0.1
-  android_alarm_manager_plus: ^5.0.0
+ # NOTIFICATIONS
+ flutter_local_notifications: ^19.4.0
+ timezone: ^0.10.1
+ flutter_timezone: ^5.0.1
+ android_alarm_manager_plus: ^5.0.0
 
-  # PERMISSIONS
-  permission_handler: ^12.0.1
-  app_settings: ^5.1.1
+ # PERMISSIONS
+ permission_handler: ^12.0.1
+ app_settings: ^5.1.1
 
-  # OFFLINE DATABASE
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
+ # OFFLINE DATABASE
+ hive: ^2.2.3
+ hive_flutter: ^1.1.0
 
-  # STATE MANAGEMENT
-  provider: ^6.1.5
+ # STATE MANAGEMENT
+ provider: ^6.1.5
 
-  # VOICE
-  flutter_tts: ^4.2.3
-  speech_to_text: ^7.3.0
+ # VOICE
+ flutter_tts: ^4.2.3
+ speech_to_text: ^7.3.0
 
-  # AI CHATBOT
-  google_generative_ai: ^0.4.7
+ # AI CHATBOT
+ google_generative_ai: ^0.4.7
 
-  # CONNECTIVITY
-  connectivity_plus: ^7.1.1
+ # CONNECTIVITY
+ connectivity_plus: ^7.1.1
 
-  # UI
-  lottie: ^3.3.1
-  fl_chart: ^1.0.0
-  google_fonts: ^6.2.1
+ # UI
+ lottie: ^3.3.1
+ fl_chart: ^0.68.0
+ google_fonts: ^6.2.1
+ liquid_progress_indicator_v2: ^0.5.0
+ confetti: ^0.7.0
 
-  # UTILITIES
-  intl: ^0.20.2
-  shared_preferences: ^2.5.3
-  uuid: ^4.5.1
+ # UTILITIES
+ intl: ^0.20.2
+ shared_preferences: ^2.5.3
+ uuid: ^4.5.1
 
-  # AUDIO
-  audioplayers: ^6.5.0
+ # AUDIO
+ audioplayers: ^6.5.0
 
-  # OCR
-  google_mlkit_text_recognition: ^0.15.0
+ # OCR
+ google_mlkit_text_recognition: ^0.15.0
 
-  # FOOD IMAGE SCANNER
-  image_picker: ^1.1.2
-  google_mlkit_image_labeling: ^0.14.2
+ # FOOD IMAGE SCANNER
+ image_picker: ^1.1.2
+ google_mlkit_image_labeling: ^0.14.2
 
-  # CHARTS
-  syncfusion_flutter_charts: ^30.1.42
+ # CHARTS
+ syncfusion_flutter_charts: ^30.1.42
+
+
+flutter:
+ uses-material-design: true

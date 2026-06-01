@@ -21,7 +21,7 @@ class _AppShellState extends State<AppShell> {
     DashboardScreen(goTab: (t) => setState(() => _tab = t)),
     const MedicinesScreen(),
     const BreathingScreen(),
-    const NutritionScreen(),
+    NutritionScreen(),
     const AssistantScreen(),
   ];
 

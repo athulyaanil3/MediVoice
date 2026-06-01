@@ -11,6 +11,7 @@ import '../widgets/ui_kit.dart';
 import '../widgets/validation_banner.dart';
 import 'app_shell.dart';
 import 'register_screen.dart';
+import '../services/cloud_sync_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -28,9 +29,37 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _bannerMessage;
 
   Future<void> _goHome() async {
-    await context.read<MedicineCatalog>().syncWithCloudAndReschedule();
+
+    try {
+
+      // DOWNLOAD CLOUD DATA
+      await CloudSyncService.instance
+          .mergeFromCloud();
+
+      // REFRESH PROVIDER
+      await context
+          .read<MedicineCatalog>()
+          .syncWithCloudAndReschedule();
+
+      // REALTIME CLOUD SYNC
+      CloudSyncService.instance
+          .watchMedicines()
+          .listen((_) {});
+
+    } catch (e) {
+      debugPrint(
+        'Cloud sync failed: $e',
+      );
+    }
+
     if (!mounted) return;
-    Navigator.pushReplacement(context, MaterialPageRoute<void>(builder: (_) => const AppShell()));
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => const AppShell(),
+      ),
+    );
   }
 
   void _showError(String? message) {
