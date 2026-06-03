@@ -1,28 +1,19 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:medic/providers/medicine_catalog.dart';
 import 'package:medic/services/local_store.dart';
 import 'package:medic/screens/medicines_screen.dart';
 
 void main() {
-  late Directory tempDir;
-
   setUp(() async {
-    tempDir = await Directory.systemTemp.createTemp('hive_test');
-    Hive.init(tempDir.path);
-    await Hive.openBox(LocalStore.medicinesBoxId);
-    await Hive.openBox(LocalStore.foodBoxId);
-    await Hive.openBox(LocalStore.settingsBoxId);
+    SharedPreferences.setMockInitialValues({});
+    await LocalStore.init();
   });
 
   tearDown(() async {
-    await Hive.close();
-    if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
-    }
+    // No teardown required for shared preferences mock
   });
 
   testWidgets('Save medicine test', (WidgetTester tester) async {

@@ -36,7 +36,7 @@ class _CalorieScreenState
     });
 
     final result =
-    await FoodService.searchFood(
+    await FoodAIService.getFoodDetails(
       controller.text,
     );
 
@@ -67,8 +67,7 @@ class _CalorieScreenState
 
     if (foodData == null) return '0';
 
-    return foodData!['nutriments']
-    ?['energy-kcal_100g']
+    return foodData!['calories']
         ?.toString() ??
         '0';
   }
@@ -184,7 +183,7 @@ class _CalorieScreenState
 
                       Text(
                         foodData![
-                        'product_name'] ??
+                        'name'] ??
                             'Food',
 
                         style:

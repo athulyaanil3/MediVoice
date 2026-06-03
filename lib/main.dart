@@ -9,17 +9,21 @@ import 'providers/calorie_journal.dart';
 import 'providers/medicine_catalog.dart';
 
 import 'screens/splash_screen.dart';
-
 import 'services/local_store.dart';
 import 'services/notification_service.dart';
 import 'services/voice_service.dart';
+import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 
+final GlobalKey<NavigatorState> navigatorKey =
+GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Must complete before any provider reads LocalStore (Home, Meds, Food tabs).
   await LocalStore.init();
 
+
+  await AndroidAlarmManager.initialize();
   try {
 
     await Firebase.initializeApp(
@@ -43,6 +47,7 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Notifications init: $e');
   }
+
 
   runApp(const MyApp());
 }
@@ -68,6 +73,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         title: 'MediVoice AI',
         theme: ThemeData(
@@ -79,3 +85,8 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
+
+
+
+

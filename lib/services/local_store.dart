@@ -4,13 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/food_entry.dart';
 import '../models/medicine.dart';
+import '../models/medicine_log.dart';
 
 class LocalStore {
   static const String medicinesKey = 'medicines';
   static const String medicinesBoxId = 'medicines';
   static const String foodBoxId = 'food_logs';
   static const String settingsBoxId = 'app_settings';
-
+  static const String medicineLogsKey = 'medicine_logs';
   // DEFAULT VALUES
 
   static const int defaultCalorieGoal = 2000;
@@ -35,6 +36,10 @@ class LocalStore {
     await init();
   }
 
+  //
+  static Future<void> clearMedicineLogs() async {
+    await _prefs.remove(medicineLogsKey);
+  }
   // =========================
   // MEDICINES
   // =========================
@@ -117,36 +122,175 @@ class LocalStore {
 
     }).toList();
   }
+ // MEDICINE LOG
+
+  static Future<void> saveMedicineLog(
+      MedicineLog log,
+      ) async {
+
+    final logs = readMedicineLogs();
+
+    logs.add(log);
+    if (logs.length > 500) {
+      logs.sort(
+            (a, b) =>
+            a.time.compareTo(
+              b.time,
+            ),
+      );
+
+      logs.removeRange(
+        0,
+        logs.length - 500,
+      );
+    }
+
+    final encoded =
+    logs.map((e) {
+      return jsonEncode(
+        e.toMap(),
+      );
+    }).toList();
+
+    await _prefs.setStringList(
+      medicineLogsKey,
+      encoded,
+    );
+  }
+
+  static List<MedicineLog>
+  readMedicineLogs() {
+
+    final data =
+        _prefs.getStringList(
+          medicineLogsKey,
+        ) ??
+            [];
+
+    return data.map((e) {
+      return MedicineLog.fromMap(
+        jsonDecode(e),
+      );
+    }).toList();
+  }
 
   // =========================
   // FOOD
   // =========================
-
   static Future<void> upsertFood(
       FoodEntry food,
-      ) async {}
+      ) async {
+    final foods = readFoodSince(
+      DateTime(2000),
+    );
+
+    final index = foods.indexWhere(
+          (f) => f.id == food.id,
+    );
+
+    if (index >= 0) {
+      foods[index] = food;
+    } else {
+      foods.add(food);
+    }
+
+    final encoded = foods
+        .map(
+          (f) => jsonEncode(
+        f.toMap(),
+      ),
+    )
+        .toList();
+
+    await _prefs.setStringList(
+      foodBoxId,
+      encoded,
+    );
+  }
 
   static Future<void> deleteFood(
       String id,
-      ) async {}
+      ) async {
+    final foods = readFoodSince(
+      DateTime(2000),
+    );
+
+    foods.removeWhere(
+          (f) => f.id == id,
+    );
+
+    final encoded = foods
+        .map(
+          (f) => jsonEncode(
+        f.toMap(),
+      ),
+    )
+        .toList();
+
+    await _prefs.setStringList(
+      foodBoxId,
+      encoded,
+    );
+  }
 
   static List<FoodEntry> readFoodSince(
       DateTime from,
       ) {
-    return [];
+    final data =
+        _prefs.getStringList(
+          foodBoxId,
+        ) ??
+            [];
+
+    final foods = data
+        .map(
+          (e) => FoodEntry.fromMap(
+        jsonDecode(e),
+      ),
+    )
+        .toList();
+
+    return foods
+        .where(
+          (f) => f.at.isAfter(from),
+    )
+        .toList();
   }
 
   static List<FoodEntry> readToday() {
-    return [];
+    final now = DateTime.now();
+
+    return readFoodSince(
+      DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ),
+    );
   }
 
   static FoodEntry? lastLoggedMeal() {
-    return null;
+    final foods = readFoodSince(
+      DateTime(2000),
+    );
+
+    if (foods.isEmpty) return null;
+
+    foods.sort(
+          (a, b) => b.at.compareTo(a.at),
+    );
+
+    return foods.first;
   }
 
   static int todayCalorieTotal() {
-    return 0;
+    return readToday().fold<int>(
+      0,
+          (sum, food) =>
+      sum + food.calories,
+    );
   }
+
 
   // =========================
   // CALORIE GOAL
@@ -168,6 +312,35 @@ class LocalStore {
       'calorie_goal',
       goal,
     );
+  }
+  // =========================
+// PROFILE DATA
+// =========================
+
+  static Future<void> saveUserProfile({
+    required int age,
+    required String gender,
+    required double weight,
+    required double height,
+    required String activity,
+  }) async {
+    await _prefs.setInt('user_age', age);
+    await _prefs.setString('user_gender', gender);
+    await _prefs.setDouble('user_weight', weight);
+    await _prefs.setDouble('user_height', height);
+    await _prefs.setString('user_activity', activity);
+  }
+
+  static Map<String, dynamic> readUserProfile() {
+    return {
+      'age': _prefs.getInt('user_age') ?? 0,
+      'gender': _prefs.getString('user_gender') ?? 'Male',
+      'weight': _prefs.getDouble('user_weight') ?? 0,
+      'height': _prefs.getDouble('user_height') ?? 0,
+      'activity':
+      _prefs.getString('user_activity') ??
+          'Moderately Active',
+    };
   }
 
   // =========================
@@ -308,4 +481,5 @@ class LocalStore {
       'voice_minute_$alarmId',
     );
   }
+
 }

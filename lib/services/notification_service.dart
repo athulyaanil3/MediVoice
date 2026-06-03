@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -9,9 +10,13 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/medicine.dart';
+import '../models/medicine_log.dart';
+import '../services/local_store.dart';
 import '../utils/reminder_time.dart';
 import 'reminder_voice_alarm.dart';
 import 'reminder_voice_service.dart';
+import '../main.dart';
+import '../screens/remainder_response_screen.dart';
 
 final FlutterLocalNotificationsPlugin _notifications =
     FlutterLocalNotificationsPlugin();
@@ -25,9 +30,277 @@ AndroidFlutterLocalNotificationsPlugin? get _android {
   }
 }
 
+int preAlarmNotificationId(String medicineId, int slotIndex) {
+  final combined = Object.hash(medicineId, slotIndex, 'pre_alarm');
+  return (combined & 0x7fffffff).clamp(1, 2147483646);
+}
+
+int snoozeReminderId(String medicineId) {
+  final combined = Object.hash(medicineId, 'snooze_reminder');
+  return (combined & 0x7fffffff).clamp(1, 2147483646);
+}
+
+int snoozeStatusId(String medicineId) {
+  final combined = Object.hash(medicineId, 'snooze_status');
+  return (combined & 0x7fffffff).clamp(1, 2147483646);
+}
+
+Future<void> skipReminderOccurrenceToday(String medicineId, int slotIndex) async {
+  try {
+    if (!HiveBoxesReady.check()) {
+      await LocalStore.boot();
+    }
+    final medicines = LocalStore.readMedicines();
+    final medicine = medicines.firstWhere((m) => m.id == medicineId);
+
+    final id = reminderNotificationId(medicine.id, slotIndex);
+    await _notifications.cancel(id);
+    await cancelVoiceAlarm(id);
+
+    // Save to logs as skipped
+    await LocalStore.saveMedicineLog(
+      MedicineLog(
+        medicineId: medicineId,
+        medicineName: medicine.name,
+        time: DateTime.now(),
+        status: MedicineStatus.skipped,
+      ),
+    );
+
+    // Re-schedule starting from tomorrow
+    final parsed = parseReminderTime(medicine.reminderTimes[slotIndex]);
+    if (parsed != null) {
+      final now = tz.TZDateTime.now(tz.local);
+      final tomorrow = now.add(const Duration(days: 1));
+      final when = tz.TZDateTime(
+        tz.local,
+        tomorrow.year,
+        tomorrow.month,
+        tomorrow.day,
+        parsed.hour,
+        parsed.minute,
+      );
+
+      final canExact = defaultTargetPlatform == TargetPlatform.android
+          ? (await _android?.canScheduleExactNotifications() ?? false)
+          : true;
+
+      final scheduleMode = canExact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle;
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        presentBadge: true,
+        interruptionLevel: InterruptionLevel.timeSensitive,
+      );
+
+      final speechText = ReminderVoiceService.buildMessage(medicine);
+      final timeStr = displayReminderTime(medicine.reminderTimes[slotIndex]);
+      final payload = _notificationPayload(medicine);
+
+      // Reschedule the pre-alarm for tomorrow as well!
+      final preAlarmId = preAlarmNotificationId(medicine.id, slotIndex);
+      final preAlarmWhen = when.subtract(const Duration(minutes: 15));
+      if (preAlarmWhen.isAfter(now)) {
+        final preAlarmAndroidDetails = AndroidNotificationDetails(
+          'medic_reminders_v1',
+          'Medicine reminders',
+          channelDescription: 'Daily medicine reminder times',
+          importance: Importance.max,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.alarm,
+          visibility: NotificationVisibility.public,
+          actions: <AndroidNotificationAction>[
+            const AndroidNotificationAction(
+              'action_pre_alarm_stop',
+              'Stop',
+              showsUserInterface: true,
+              cancelNotification: true,
+            ),
+          ],
+        );
+
+        final preAlarmPayload = jsonEncode({
+          'id': medicine.id,
+          'slotIndex': slotIndex,
+        });
+
+        await _notifications.zonedSchedule(
+          preAlarmId,
+          'Clock',
+          'The $timeStr alarm will ring soon.',
+          preAlarmWhen,
+          NotificationDetails(
+            android: preAlarmAndroidDetails,
+            iOS: iosDetails,
+          ),
+          payload: preAlarmPayload,
+          androidScheduleMode: scheduleMode,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
+      }
+
+      final androidDetails = AndroidNotificationDetails(
+        'medic_reminders_v1',
+        'Medicine reminders',
+        channelDescription: 'Daily medicine reminder times',
+        importance: Importance.max,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.alarm,
+        visibility: NotificationVisibility.public,
+        styleInformation: BigTextStyleInformation(
+          medicine.dosage.isEmpty ? speechText : '${medicine.dosage}\n$speechText',
+        ),
+        actions: <AndroidNotificationAction>[
+          const AndroidNotificationAction(
+            'action_snooze',
+            'Snooze',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+          const AndroidNotificationAction(
+            'action_skip',
+            '✗ Skip',
+            showsUserInterface: true,
+            cancelNotification: true,
+          ),
+        ],
+      );
+
+      await _notifications.zonedSchedule(
+        id,
+        timeStr,
+        '💊 Alarm - ${medicine.name}',
+        when,
+        NotificationDetails(
+          android: androidDetails,
+          iOS: iosDetails,
+        ),
+        payload: payload,
+        androidScheduleMode: scheduleMode,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+
+      try {
+        await scheduleVoiceAlarmForReminder(
+          alarmId: id,
+          when: when,
+          speechText: speechText,
+          hour: parsed.hour,
+          minute: parsed.minute,
+        );
+      } catch (e) {
+        if (kDebugMode) debugPrint('Voice alarm skipped on reschedule: $e');
+      }
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('Error skipping reminder today: $e');
+    }
+  }
+}
+
+Future<void> handleNotificationAction(String actionId, String payload) async {
+  try {
+    if (!HiveBoxesReady.check()) {
+      await LocalStore.boot();
+    }
+    final data = jsonDecode(payload);
+    final String medicineId = data['id'] ?? '';
+    final String medicineName = data['name'] ?? 'Medicine';
+
+    if (actionId == 'action_taken') {
+      await LocalStore.saveMedicineLog(
+        MedicineLog(
+          medicineId: medicineId,
+          medicineName: medicineName,
+          time: DateTime.now(),
+          status: MedicineStatus.taken,
+        ),
+      );
+    } else if (actionId == 'action_skip') {
+      await LocalStore.saveMedicineLog(
+        MedicineLog(
+          medicineId: medicineId,
+           medicineName: medicineName,
+          time: DateTime.now(),
+          status: MedicineStatus.skipped,
+        ),
+      );
+    } else if (actionId == 'action_snooze') {
+      await LocalStore.saveMedicineLog(
+        MedicineLog(
+          medicineId: medicineId,
+          medicineName: medicineName,
+          time: DateTime.now(),
+          status: MedicineStatus.snoozed,
+        ),
+      );
+
+      final delay = const Duration(minutes: 10);
+      final reminderId = snoozeReminderId(medicineId);
+      final statusId = snoozeStatusId(medicineId);
+
+      await scheduleSnoozeReminder(
+        notificationId: reminderId,
+        title: '💊 $medicineName',
+        body: 'Medicine reminder',
+        payload: payload,
+        delay: delay,
+      );
+
+      await _notifications.show(
+        statusId,
+        'Snooze',
+        '$medicineName reminder',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'medic_reminders_v1',
+            'Medicine reminders',
+            importance: Importance.low,
+            usesChronometer: true,
+            chronometerCountDown: true,
+            when: DateTime.now().millisecondsSinceEpoch + delay.inMilliseconds,
+            actions: <AndroidNotificationAction>[
+              const AndroidNotificationAction(
+                'action_cancel_snooze',
+                'X',
+                showsUserInterface: true,
+                cancelNotification: true,
+              ),
+            ],
+          ),
+        ),
+        payload: payload,
+      );
+    } else if (actionId == 'action_cancel_snooze') {
+      final statusId = snoozeStatusId(medicineId);
+      await _notifications.cancel(statusId);
+
+      final reminderId = snoozeReminderId(medicineId);
+      await _notifications.cancel(reminderId);
+      await cancelVoiceAlarm(reminderId);
+    } else if (actionId == 'action_pre_alarm_stop') {
+      final int slotIndex = data['slotIndex'] ?? 0;
+      final preAlarmId = preAlarmNotificationId(medicineId, slotIndex);
+      await _notifications.cancel(preAlarmId);
+      await skipReminderOccurrenceToday(medicineId, slotIndex);
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      debugPrint('Error handling notification action: $e');
+    }
+  }
+}
+
 @pragma('vm:entry-point')
-void onBackgroundNotificationResponse(NotificationResponse response) {
+void onBackgroundNotificationResponse(NotificationResponse response) async {
   speakFromNotificationPayload(response.payload);
+  if (response.payload != null && response.actionId != null) {
+    await handleNotificationAction(response.actionId!, response.payload!);
+  }
 }
 
 /// Permission status for reminders
@@ -70,7 +343,7 @@ Future<void> initNotifications() async {
   await _configureLocalTimeZone();
 
   try {
-    await initReminderVoiceAlarms();
+    // await initReminderVoiceAlarms();
   } catch (e) {
     if (kDebugMode) debugPrint('Voice alarm init skipped: $e');
   }
@@ -82,8 +355,32 @@ Future<void> initNotifications() async {
       android: androidInit,
       iOS: DarwinInitializationSettings(),
     ),
-    onDidReceiveNotificationResponse: (response) {
-      speakFromNotificationPayload(response.payload);
+    onDidReceiveNotificationResponse: (response) async {
+      if (response.payload != null) {
+        if (response.actionId != null) {
+          await handleNotificationAction(response.actionId!, response.payload!);
+        } else {
+          try {
+            final data = jsonDecode(response.payload!);
+            final String medicineId = data['id'] ?? '';
+            final String medicineName = data['name'] ?? 'Medicine';
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (_) => ReminderResponseScreen(
+                  medicineId: medicineId,
+                  medicineName: medicineName,
+                  payload: response.payload!,
+                  notificationId: response.id ?? 0,
+                ),
+              ),
+            );
+          } catch (e) {
+            if (kDebugMode) {
+              debugPrint('Payload parse error: $e');
+            }
+          }
+        }
+      }
     },
     onDidReceiveBackgroundNotificationResponse: onBackgroundNotificationResponse,
   );
@@ -99,11 +396,6 @@ Future<void> initNotifications() async {
 
   await _android?.createNotificationChannel(channel);
   await ensureReminderPermissions(requestIfNeeded: true);
-
-  final launch = await _notifications.getNotificationAppLaunchDetails();
-  if (launch?.didNotificationLaunchApp == true) {
-    speakFromNotificationPayload(launch?.notificationResponse?.payload);
-  }
 }
 
 Future<void> _configureLocalTimeZone() async {
@@ -265,6 +557,26 @@ Future<NotificationScheduleResult> scheduleMedicineNotifications(
       styleInformation: BigTextStyleInformation(
         medicine.dosage.isEmpty ? speechText : '${medicine.dosage}\n$speechText',
       ),
+      actions: <AndroidNotificationAction>[
+        const AndroidNotificationAction(
+          'action_taken',
+          '✓ Taken',
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+        const AndroidNotificationAction(
+          'action_snooze',
+          '⏰ Snooze',
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+        const AndroidNotificationAction(
+          'action_skip',
+          '✗ Skip',
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+      ],
     );
 
     final details = NotificationDetails(
@@ -377,3 +689,41 @@ Future<void> showTestReminderNotification() async {
     ),
   );
 }
+Future<void> scheduleSnoozeReminder({
+  required int notificationId,
+  required String title,
+  required String body,
+  required String payload,
+  required Duration delay,
+}) async {
+
+
+  final when = tz.TZDateTime.now(tz.local);
+
+  await _notifications.zonedSchedule(
+    notificationId,
+    title,
+    body,
+    when,
+    const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'medic_reminders_v1',
+        'Medicine reminders',
+        importance: Importance.max,
+        priority: Priority.high,
+      ),
+    ),
+    payload: payload,
+    androidScheduleMode:
+    AndroidScheduleMode.exactAllowWhileIdle,
+  );
+}
+
+Future<void> cancelNotificationById(
+    int notificationId,
+    ) async {
+  await _notifications.cancel(
+    notificationId,
+  );
+}
+

@@ -40,6 +40,13 @@ class _AssistantScreenState extends State<AssistantScreen> {
   final List<String> allowedTopics = [
 
     // MEDICINE
+    'today',
+    'summary',
+    'score',
+    'weekly',
+    'report',
+    'coach',
+    'missed',
     'medicine',
     'tablet',
     'pill',
@@ -388,6 +395,65 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
                   // INPUT AREA
 
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+
+                          ActionChip(
+                            label: const Text('📊 Summary'),
+                            onPressed: () =>
+                                _send('Today Summary'),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          ActionChip(
+                            label: const Text('❤️ Score'),
+                            onPressed: () =>
+                                _send('Health Score'),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          ActionChip(
+                            label: const Text('📈 Weekly'),
+                            onPressed: () =>
+                                _send('Weekly Report'),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          ActionChip(
+                            label: const Text('💧 Water'),
+                            onPressed: () =>
+                                _send('Water Coach'),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          ActionChip(
+                            label: const Text('🍎 Calories'),
+                            onPressed: () =>
+                                _send('Calories Today'),
+                          ),
+
+                          const SizedBox(width: 8),
+
+                          ActionChip(
+                            label: const Text('💊 Missed'),
+                            onPressed: () =>
+                                _send('Did I miss any medicines?'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                   Container(
                     padding: const EdgeInsets.fromLTRB(
                       12,
@@ -490,33 +556,28 @@ class _AssistantScreenState extends State<AssistantScreen> {
 
                         // SEND BUTTON
 
-                        Material(
-                          color: AppTheme.deepTeal,
+Material(
+color: AppTheme.deepTeal,
+borderRadius: BorderRadius.circular(14),
+child: IconButton(
+onPressed: _busy
+? null
+: () => _send(_ctrl.text),
+icon: const Icon(
+Icons.send_rounded,
+color: Colors.white,
+),
+),
+),
+],
+),
+),
+],
+),
+),
+),
 
-                          borderRadius:
-                          BorderRadius.circular(14),
-
-                          child: IconButton(
-
-                            onPressed: _busy
-                                ? null
-                                : () => _send(_ctrl.text),
-
-                            icon: const Icon(
-                              Icons.send_rounded,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 88),
+          const SizedBox(height: 12),
         ],
       ),
     );

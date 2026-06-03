@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 import '../providers/calorie_journal.dart';
 import '../providers/medicine_catalog.dart';
 import '../services/auth_service.dart';
+import '../services/medicine_stats_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ui_kit.dart';
 
 import 'login_screen.dart';
 import 'settings_screen.dart';
+import 'medication_history_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({
@@ -212,8 +214,105 @@ class DashboardScreen extends StatelessWidget {
               ),
 
               const SizedBox(height: 30),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                      const MedicationHistoryScreen(),
+                    ),
+                  );
+                },
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
 
-              /// QUICK ACTIONS
+                        const Row(
+                          mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Medication Adherence',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight:
+                                FontWeight.bold,
+                              ),
+                            ),
+                            Icon(Icons.chevron_right),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        Text(
+                          '${MedicineStatsService.adherencePercent().toStringAsFixed(1)}%',
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight:
+                            FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        LinearProgressIndicator(
+                          value:
+                          MedicineStatsService
+                              .adherencePercent() /
+                              100,
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        Row(
+                          mainAxisAlignment:
+                          MainAxisAlignment.spaceAround,
+                          children: [
+
+                            _stat(
+                              '✓',
+                              MedicineStatsService
+                                  .takenCount(),
+                              'Taken',
+                            ),
+
+                            _stat(
+                              '✗',
+                              MedicineStatsService
+                                  .skippedCount(),
+                              'Missed',
+                            ),
+
+                            _stat(
+                              '⏰',
+                              MedicineStatsService
+                                  .snoozedCount(),
+                              'Snoozed',
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 15),
+
+                        Text(
+                          'Tap to view history',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+    const SizedBox(height: 20),
+
+    /// QUICK ACTIONS
               Text(
                 'Quick actions',
                 style: Theme.of(context)
@@ -333,4 +432,31 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+}
+Widget _stat(
+    String icon,
+    int value,
+    String label,
+    ) {
+  return Column(
+    children: [
+
+      Text(
+        icon,
+        style: const TextStyle(
+          fontSize: 22,
+        ),
+      ),
+
+      Text(
+        '$value',
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+
+      Text(label),
+    ],
+  );
 }
